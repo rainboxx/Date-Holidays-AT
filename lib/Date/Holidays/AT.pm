@@ -126,20 +126,20 @@ sub holidays {
     # See what holidays shall be printed
     my $wantall = 0;
     foreach (@{$parameters{'WHERE'}}){
-		if ($_ eq 'all'){
-			$wantall = 1;
-		}
+        if ($_ eq 'all'){
+            $wantall = 1;
+        }
     }
     if (1 == $wantall){
-		# All holidays if 'all' is in the WHERE parameter list.
-		%holidaylist = %holiday;
+        # All holidays if 'all' is in the WHERE parameter list.
+        %holidaylist = %holiday;
     }else{
-		# Only specified regions
-		foreach my $scope (@{$parameters{'WHERE'}}){
-			foreach my $alias(@{$holidays{$scope}}){
-				$holidaylist{$alias} = $holiday{$alias};
-			}
-		}
+        # Only specified regions
+        foreach my $scope (@{$parameters{'WHERE'}}){
+            foreach my $alias(@{$holidays{$scope}}){
+                $holidaylist{$alias} = $holiday{$alias};
+            }
+        }
     }
 
 
