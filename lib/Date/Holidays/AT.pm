@@ -14,11 +14,12 @@ require Exporter;
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(holidays);
-use version; our $VERSION = qv("0.1.3");
+use version; our $VERSION = qv("0.1.4");
 
 sub holidays {
     my %parameters = (
                       YEAR     => This_Year(),
+                      WHERE    => ['common'],
                       FORMAT   => "%s",
                       WEEKENDS => 1,
                       @_,
@@ -97,16 +98,56 @@ sub holidays {
     $holiday{'fron'} = _date2timestamp($j_fron, $m_fron, $t_fron);
 
     # Common holidays througout Austria
-    @{ $holidays{'common'} } = qw(neuj hl3k tdar mahi nati alhe mart maem chri stef);
+    @{ $holidays{'common'} } = qw(neuj hl3k ostm tdar himm pfim fron mahi nati alhe maem chri stef);
+
+
+    # Extra for Burgenland
+    @{ $holidays{'B'} } =   qw(jose karf mart heab silv );
+    # Extra for Kaernten
+    @{ $holidays{'K'} } =   qw(     karf volk heab silv );
+    # Extra for Niederoesterreich
+    @{ $holidays{'NOE'} } = qw(     karf leop heab silv );
+    # Extra for Oberoesterreich
+    @{ $holidays{'OOE'} } = qw(     karf flor heab silv );
+    # Extra for Salzburg
+    @{ $holidays{'S'} } =   qw(     karf rupe heab silv );
+    # Extra for Steiermark
+    @{ $holidays{'ST'} } =  qw(jose karf      heab silv );
+    # Extra for Tirol
+    @{ $holidays{'T'} } =   qw(jose karf      heab silv );
+    # Extra for Voralberg
+    @{ $holidays{'V'} } =   qw(jose karf      heab silv );
+    # Extra for Wien
+    @{ $holidays{'W'} } =   qw(     karf leop heab silv );
 
     # Build list for returning
     #
+    my %holidaylist;
+    # See what holidays shall be printed
+    my $wantall = 0;
+    foreach (@{$parameters{'WHERE'}}){
+        if ($_ eq 'all'){
+            $wantall = 1;
+        }
+    }
+    if (1 == $wantall){
+        # All holidays if 'all' is in the WHERE parameter list.
+        %holidaylist = %holiday;
+    }else{
+        # Only specified regions
+        foreach my $scope (@{$parameters{'WHERE'}}){
+            foreach my $alias(@{$holidays{$scope}}){
+                $holidaylist{$alias} = $holiday{$alias};
+            }
+        }
+    }
+
 
     # Add the most obscure holidays that were requested through
     # the ADD parameter
     if ($parameters{'ADD'}) {
         foreach my $add (@{ $parameters{'ADD'} }) {
-            $holiday{$add} = $holiday{$add};
+            $holidaylist{$add} = $holiday{$add};
         }
     }
 
@@ -115,7 +156,7 @@ sub holidays {
     unless (1 == $parameters{'WEEKENDS'}) {
 
         # Walk the list of holidays
-        foreach my $alias (keys(%holiday)) {
+        foreach my $alias (keys(%holidaylist)) {
 
             # Get day of week. Since we're no longer
             # in Date::Calc's world, use localtime()
@@ -125,7 +166,7 @@ sub holidays {
             if ((6 == $dow) or (0 == $dow)) {
 
                 # Kick this day from the list
-                delete $holiday{$alias};
+                delete $holidaylist{$alias};
             }
         }
     }
@@ -133,19 +174,19 @@ sub holidays {
     # Sort values stored in the hash for returning
     #
     my @returnlist;
-    foreach (sort { $holiday{$a} <=> $holiday{$b} } (keys(%holiday))) {
+    foreach (sort { $holidaylist{$a} <=> $holidaylist{$b} } (keys(%holidaylist))) {
 
         # See if this platform has strftime(%s)
         # if not, inject seconds manually into format string.
         my $formatstring = $parameters{'FORMAT'};
-        if (strftime('%s', localtime($holiday{$_})) eq '%s') {
-            $formatstring =~ s/%{0}%s/$holiday{$_}/g;
+        if (strftime('%s', localtime($holidaylist{$_})) eq '%s') {
+            $formatstring =~ s/%{0}%s/$holidaylist{$_}/g;
         }
 
         # Inject the holiday's alias name into the format string
         # if it was requested by adding %#.
         $formatstring =~ s/%{0}%#/$_/;
-        push @returnlist, strftime($formatstring, localtime($holiday{$_}));
+        push @returnlist, strftime($formatstring, localtime($holidaylist{$_}));
     }
     return \@returnlist;
 }
@@ -241,17 +282,57 @@ issues, you'll have to find your own way to translate the aliases into your
 local language. See the I<example/feiertage.pl> script included in the
 Date::Holidays::DE distribution to get the idea. This was added in version 0.6. 
 
+
+=head2 LOCAL HOLIDAYS
+
+The module also knows about different regulations throughout Austria
+
+When calling B<holidays()>, the resulting list by default contains the list of 
+Austria-wide holidays.
+
+You can specify one ore more of the following federal states to get the list of 
+holidays local to that state:
+
+  B    Burgenland
+  K    Kaernten
+  NOE  Niederoesterreich
+  OOE  Oberoesterreich
+  S    Salzburg
+  ST   Steiermark
+  T    Tirol
+  W    Wien
+
+For example,
+
+  my $feiertage_ref = holidays(WHERE=>['W', 'S']);
+
+returns the list of holidays local to Wien or Salzburg.
+
+To get the list of local holidays along with the default list of common
+Austrian holidays, use the following:
+
+  my $feiertage_ref = holidays(WHERE=>['common', 'ST']);
+
+returns the list of common Austrian holidays merged with the list of holidays
+specific to Steiermark.
+
+You can also request a list containing all holidays this module knows about:
+
+  my $feiertage_ref = holidays(WHERE=>['all']);
+
+will return a list of all known holidays.
+
 =head2 ADDITIONAL HOLIDAYS
 
 There are a number of holidays that aren't really holidays, e.g. New Year's Eve 
 and Christmas Eve. These aren't contained in the I<common> set of holidays 
-returnd by the B<holidays()> function. The aforementioned I<silv> and I<heil> 
+returnd by the B<holidays()> function. The aforementioned I<silv> and I<heab> 
 are probably the most likely ones that you'll need.
 
 If you want one or several of them to appear in the output from B<holidays()>, 
 use the following:
 
-  my $feiertage_ref = holidays(ADD=>['heil', 'silv']);
+  my $feiertage_ref = holidays(ADD=>['heab', 'silv']);
 
 =head2 SPECIFYING THE YEAR
 
@@ -276,9 +357,10 @@ Christmas Eve as Holidays. Exclude weekends and return the date list in human
 readable format:
 
   my $feiertage_ref = holidays(FORMAT   => "%a, %d.%m.%Y"
+                               WHERE    => ['common'],
                                WEEKENDS => 0,
                                YEAR     => 2004,
-                               ADD      => ['heil', 'silv']);
+                               ADD      => ['heab', 'silv']);
 
 =head1 PREREQUISITES
 
